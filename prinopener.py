@@ -1,44 +1,68 @@
 # bot.py
 import os
+import time
+from collections import deque
+
 import discord
 from discord.ext import commands
+from discord.errors import HTTPException
 from dotenv import load_dotenv
 
-# Load .env variables
+# load config
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 
-# Set up intents
-intents = discord.Intents.default()
-intents.message_content = True  # enable reading message content
+# keep track of rename timestamps (monotonic seconds)
+# store all renames here and prune older than 600s
+rename_history = deque()
 
-# Instantiate bot
+# bot setup
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f"✅ Logged in as {bot.user}")
 
 @bot.event
 async def on_message(message):
-    # Ignore bot messages
-    if message.author.bot:
-        return
-
-    # Only watch the designated channel
-    if message.channel.id != CHANNEL_ID:
+    if message.author.bot or message.channel.id != CHANNEL_ID:
         return
 
     content = message.content.lower().strip()
-    # Exactly "open"
     if content == "open":
-        await message.channel.edit(name="open🟢🟢")
-    # Exactly "close" or "closed"
+        new_name = "status-open 🟢"
     elif content in ("close", "closed"):
-        await message.channel.edit(name="closed🔴🔴")
+        new_name = "status-closed 🔴"
+    else:
+        await bot.process_commands(message)
+        return
 
-    # Allow other commands to be processed
+    now = time.monotonic()
+    # remove entries older than 600 seconds
+    while rename_history and now - rename_history[0] > 600:
+        rename_history.popleft()
+
+    if len(rename_history) >= 2:
+        # our own rate-limit hit
+        await message.channel.send(
+            f"{message.author.mention} ⚠️ Rename limit reached (2 per 10 min). Try again later.",
+            delete_after=10
+        )
+    else:
+        try:
+            await message.channel.edit(name=new_name)
+        except HTTPException as e:
+            await message.channel.send(
+                f"{message.author.mention} ❌ Failed to rename channel: {e.status} {e.text}",
+                delete_after=10
+            )
+        else:
+            # record successful rename
+            rename_history.append(now)
+
     await bot.process_commands(message)
 
 if __name__ == "__main__":
