@@ -33,9 +33,9 @@ async def on_message(message):
 
     content = message.content.lower().strip()
     if content == "open":
-        new_name = "status-open 🟢"
+        new_name = "open🟢🟢"
     elif content in ("close", "closed"):
-        new_name = "status-closed 🔴"
+        new_name = "closed🔴🔴"
     else:
         await bot.process_commands(message)
         return
