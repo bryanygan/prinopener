@@ -63,6 +63,25 @@ async def on_message(message):
             # record successful rename
             rename_history.append(now)
 
+            # send notification
+            if content == "open":
+                # text + embed for opening
+                await message.channel.send(
+                    "ZR Eats is now OPEN! <@&1352022044614590494>"
+                )
+                embed = discord.Embed(
+                    title="ZR Eats is now OPEN!",
+                    description="We are now accepting orders! Click the order button in <#1350935337269985334> to place an order."
+                )
+                await message.channel.send(embed=embed)
+            elif content in ("close", "closed"):
+                # embed for closing
+                embed = discord.Embed(
+                    title="ZR Eats is now CLOSED.",
+                    description="We are currently closed. Please come back later when we're open for new orders! Do not open a ticket, you will not get a response."
+                )
+                await message.channel.send(embed=embed)
+
     await bot.process_commands(message)
 
 if __name__ == "__main__":
